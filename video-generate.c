@@ -11,9 +11,12 @@
 #include <stdbool.h>
 #include "fonts.h"
 
-#define CHARS_TO_DISPLAY 12
-#define CHARS_PER_TEXT_LINE 4
+#define CHARS_PER_TEXT_LINE 10
+#define NR_OF_TEXT_LINES 10
+#define CHARS_TO_DISPLAY CHARS_PER_TEXT_LINE * NR_OF_TEXT_LINES
 #define LINE_SPACE 3
+#define FONT_LINES 5
+#define FB_NR_LINES (NR_OF_TEXT_LINES * FONT_LINES) + (NR_OF_TEXT_LINES * LINE_SPACE)
 
 #define VSYNC_LOW LATAbits.LATA1 = 0
 #define VSYNC_HIGH LATAbits.LATA1 = 1
@@ -23,16 +26,17 @@
 
 bool tmr_triggered = false;
 unsigned int line_nr = 0;
-char fb[24][CHARS_PER_TEXT_LINE];
+char text_line = 0;
+char fb[FB_NR_LINES][CHARS_PER_TEXT_LINE];
 
 void interrupt timer2_interrupt()
 {
     char col = 0;
-    if(line_nr < 24)
+    if(text_line < FB_NR_LINES)
     {
         while(col < CHARS_PER_TEXT_LINE)
         {
-            SSP1BUF = fb[line_nr][col];
+            SSP1BUF = fb[text_line][col];
             col++;
         }
     }
@@ -66,7 +70,17 @@ void pwm_init(void)
 void main(void)
 {
     char i = 0;
-    char text[12] = "SEBITEST1234";
+    const char text[CHARS_TO_DISPLAY] = "THE QUICK \
+BROWN FOX \
+JUMPS OVER\
+THE LAZY  \
+DOG 123456\
+OPQRSTUVWX\
+YZ12345678\
+90ABCDEFGH\
+IJKLMNOPQR\
+PORC MARE ";
+
     char lin = 0, col = 0, displayed_chars;
 	char font_line_nr = 0;
     
@@ -87,7 +101,7 @@ void main(void)
     spi_init();
     pwm_init();
 
-    memset(fb, 0, 24 * CHARS_PER_TEXT_LINE);
+    memset(fb, 0, FB_NR_LINES * CHARS_PER_TEXT_LINE);
 	for(displayed_chars = 0; displayed_chars < CHARS_TO_DISPLAY; displayed_chars++)
 	{
 		int font_nr = text[displayed_chars] - 32;
@@ -134,10 +148,13 @@ void main(void)
         {
             __delay_us(5);
             line_nr = 0;
+            text_line = 0;
         }
         else
         {
             __delay_us(5);
+            if(line_nr < FB_NR_LINES + 1)
+                text_line++;
             line_nr++;
         }
         tmr_triggered = false;
