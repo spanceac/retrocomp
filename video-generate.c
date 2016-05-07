@@ -14,7 +14,7 @@
 #define CHARS_PER_TEXT_LINE 10
 #define NR_OF_TEXT_LINES 10
 #define CHARS_TO_DISPLAY CHARS_PER_TEXT_LINE * NR_OF_TEXT_LINES
-#define LINE_SPACE 3
+#define LINE_SPACE 7
 #define FONT_LINES 5
 #define FB_NR_LINES (NR_OF_TEXT_LINES * FONT_LINES) + (NR_OF_TEXT_LINES * LINE_SPACE)
 
@@ -67,6 +67,26 @@ void pwm_init(void)
     TRISBbits.RB0 = 0; //set CCP4 as output
 }
 
+void char_to_fb(char ch)
+{
+    int font_nr = ch - 32;
+    char font_line_nr = 0;
+    static char lin = 0;
+    static char col = 0;
+
+    if(col > 0 && (col + 1) % CHARS_PER_TEXT_LINE == 0)
+	{
+		lin += FONT_LINES + LINE_SPACE; //jump to a new text line
+		col = 0;
+	}
+
+    for(font_line_nr = 0; font_line_nr < 5; font_line_nr++)
+	{
+        fb[lin + font_line_nr][col] = fonts[font_nr][font_line_nr];
+	}
+    col++;
+}
+
 void main(void)
 {
     char i = 0;
@@ -80,9 +100,6 @@ YZ12345678\
 90ABCDEFGH\
 IJKLMNOPQR\
 PORC MARE ";
-
-    char lin = 0, col = 0, displayed_chars;
-	char font_line_nr = 0;
     
     /*OSCCONbits.IRCF = 7;
     OSCTUNEbits.PLLEN = 1;*/
@@ -102,24 +119,9 @@ PORC MARE ";
     pwm_init();
 
     memset(fb, 0, FB_NR_LINES * CHARS_PER_TEXT_LINE);
-	for(displayed_chars = 0; displayed_chars < CHARS_TO_DISPLAY; displayed_chars++)
-	{
-		int font_nr = text[displayed_chars] - 32;
-		
-		if(displayed_chars > 0 && displayed_chars % CHARS_PER_TEXT_LINE == 0)
-		{
-			lin += 5 + LINE_SPACE; //jump to a new text line
-			col = 0;
-		}
-		
-		//paint font in framebuffer
-		for(font_line_nr = 0; font_line_nr < 5; font_line_nr++)
-		{
-            fb[lin + font_line_nr][col] = fonts[font_nr][font_line_nr];
-		}
-		col++; // go to next font placement
-	}
-    col = 0;
+
+    for(i = 0; i < 100; i++)
+        char_to_fb(text[i]);
     
     while(1)
     {
