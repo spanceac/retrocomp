@@ -74,7 +74,7 @@ void char_to_fb(char ch)
     static char lin = 0;
     static char col = 0;
 
-    if(col > 0 && (col + 1) % CHARS_PER_TEXT_LINE == 0)
+    if(col > 0 && col % CHARS_PER_TEXT_LINE == 0)
 	{
 		lin += FONT_LINES + LINE_SPACE; //jump to a new text line
 		col = 0;
@@ -87,10 +87,21 @@ void char_to_fb(char ch)
     col++;
 }
 
+void uart_init(void)
+{
+    TRISCbits.TRISC7 = 1; // UART RX1
+    ANSELCbits.ANSC7 = 0;
+    SPBRG1 = 103; // 9600 baud rate
+    TXSTA1bits.SYNC = 0;
+    RCSTA1bits.SPEN = 1; //enable serial port
+    RCSTA1bits.CREN = 1; //enable receiving
+}
+
 void main(void)
 {
     char i = 0;
-    const char text[CHARS_TO_DISPLAY] = "THE QUICK \
+    const char text[CHARS_TO_DISPLAY];
+/*THE QUICK \
 BROWN FOX \
 JUMPS OVER\
 THE LAZY  \
@@ -99,7 +110,7 @@ OPQRSTUVWX\
 YZ12345678\
 90ABCDEFGH\
 IJKLMNOPQR\
-PORC MARE ";
+PORC MARE ";*/
     
     /*OSCCONbits.IRCF = 7;
     OSCTUNEbits.PLLEN = 1;*/
@@ -107,7 +118,6 @@ PORC MARE ";
     TRISCbits.TRISC5 = 0; // SDO output for color
     TRISAbits.TRISA0 = 0; // HSYNC output
     TRISAbits.TRISA1 = 0; // VSYNC output
-    INTCONbits.GIE = 1; //enable interrupts
     INTCONbits.PEIE = 1;
     PIE1bits.TMR2IE = 1; //enable timer 2 interrupt
     PIR1bits.TMR2IF = 0;
@@ -117,11 +127,12 @@ PORC MARE ";
     
     spi_init();
     pwm_init();
+    uart_init();
 
     memset(fb, 0, FB_NR_LINES * CHARS_PER_TEXT_LINE);
 
-    for(i = 0; i < 100; i++)
-        char_to_fb(text[i]);
+    char_to_fb('>');
+    INTCONbits.GIE = 1; //enable interrupts
     
     while(1)
     {
@@ -135,8 +146,14 @@ PORC MARE ";
             asm("nop"); asm("nop"); asm("nop"); asm("nop");
             asm("nop"); asm("nop"); asm("nop");
             VSYNC_LOW;
-            __delay_us(63);
-            asm("nop"); asm("nop"); asm("nop"); asm("nop");
+            if(PIR1bits.RC1IF == 1)
+            {
+                char_to_fb(RCREG1); //~56 us
+                __delay_us(7);
+            }
+            else
+                __delay_us(63);
+            asm("nop"); asm("nop");
             asm("nop"); asm("nop"); asm("nop"); asm("nop");
             asm("nop");
             VSYNC_HIGH;
