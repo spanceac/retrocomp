@@ -24,6 +24,8 @@
 #define RED_ON LATCbits.LATC5 = 1
 #define RED_OFF LATCbits.LATC5 = 0
 
+#define BACKSPACE 8
+
 bool tmr_triggered = false;
 unsigned int line_nr = 0;
 char text_line = 0;
@@ -69,7 +71,7 @@ void pwm_init(void)
 
 void char_to_fb(char ch)
 {
-    int font_nr = ch - 32;
+    char font_nr = ch - 32;
     char font_line_nr = 0;
     static char lin = 0;
     static char col = 0;
@@ -79,6 +81,29 @@ void char_to_fb(char ch)
 		lin += FONT_LINES + LINE_SPACE; //jump to a new text line
 		col = 0;
 	}
+    
+    if(ch == '\r')
+    {
+        lin += FONT_LINES + LINE_SPACE; //jump to a new text line
+		col = 0;
+        font_nr = '>' - 32;
+    }
+    else if(ch == BACKSPACE)
+    {
+        if(col == 1)
+        {
+            __delay_us(50);
+            return;
+        }
+        //in case of backspace
+        col--; //go back one position
+        font_nr = ' ' - 32; //print a space to erase
+        for(font_line_nr = 0; font_line_nr < 5; font_line_nr++)
+        {
+            fb[lin + font_line_nr][col] = fonts[font_nr][font_line_nr];
+        }
+        return;
+    }
 
     for(font_line_nr = 0; font_line_nr < 5; font_line_nr++)
 	{
@@ -100,8 +125,8 @@ void uart_init(void)
 void main(void)
 {
     char i = 0;
-    const char text[CHARS_TO_DISPLAY];
-/*THE QUICK \
+/*  const char text[CHARS_TO_DISPLAY];
+THE QUICK \
 BROWN FOX \
 JUMPS OVER\
 THE LAZY  \
@@ -121,7 +146,7 @@ PORC MARE ";*/
     INTCONbits.PEIE = 1;
     PIE1bits.TMR2IE = 1; //enable timer 2 interrupt
     PIR1bits.TMR2IF = 0;
-    SLRCONbits.SLRC = 0;
+    //SLRCONbits.SLRC = 0;
     
     VSYNC_HIGH;
     
@@ -149,7 +174,10 @@ PORC MARE ";*/
             if(PIR1bits.RC1IF == 1)
             {
                 char_to_fb(RCREG1); //~56 us
-                __delay_us(7);
+                if(RCREG1 == '\r')
+                    __delay_us(5);
+                else
+                    __delay_us(7);
             }
             else
                 __delay_us(63);
