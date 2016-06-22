@@ -15,7 +15,6 @@
 #define NR_OF_TEXT_LINES 10
 #define CHARS_TO_DISPLAY CHARS_PER_TEXT_LINE * NR_OF_TEXT_LINES
 #define LINE_SPACE 7
-#define FONT_LINES 5
 #define FB_NR_LINES (NR_OF_TEXT_LINES * FONT_LINES) + (NR_OF_TEXT_LINES * LINE_SPACE)
 
 #define VSYNC_LOW LATAbits.LATA1 = 0
@@ -34,14 +33,13 @@ char fb[FB_NR_LINES][CHARS_PER_TEXT_LINE];
 void interrupt timer2_interrupt()
 {
     char col = 0;
-    if(text_line < FB_NR_LINES)
+
+    while(col < CHARS_PER_TEXT_LINE)
     {
-        while(col < CHARS_PER_TEXT_LINE)
-        {
-            SSP1BUF = fb[text_line][col];
-            col++;
-        }
+        SSP1BUF = fb[text_line][col];
+        col++;
     }
+
     tmr_triggered = true;
     PIR1bits.TMR2IF = 0;
 }
@@ -92,20 +90,20 @@ void char_to_fb(char ch)
     {
         if(col == 1)
         {
-            __delay_us(50);
+            __delay_us(35);
             return;
         }
         //in case of backspace
         col--; //go back one position
         font_nr = ' ' - 32; //print a space to erase
-        for(font_line_nr = 0; font_line_nr < 5; font_line_nr++)
+        for(font_line_nr = 0; font_line_nr < FONT_LINES; font_line_nr++)
         {
             fb[lin + font_line_nr][col] = fonts[font_nr][font_line_nr];
         }
         return;
     }
 
-    for(font_line_nr = 0; font_line_nr < 5; font_line_nr++)
+    for(font_line_nr = 0; font_line_nr < FONT_LINES; font_line_nr++)
 	{
         fb[lin + font_line_nr][col] = fonts[font_nr][font_line_nr];
 	}
@@ -173,11 +171,17 @@ PORC MARE ";*/
             VSYNC_LOW;
             if(PIR1bits.RC1IF == 1)
             {
-                char_to_fb(RCREG1); //~56 us
-                if(RCREG1 == '\r')
+                char_to_fb(RCREG1); //~57 us
+                if(RCREG1 == BACKSPACE)
+                {
                     __delay_us(5);
+                }
                 else
-                    __delay_us(7);
+                {
+                    asm("nop"); asm("nop");
+                    __delay_us(6);
+                }
+
             }
             else
                 __delay_us(63);
