@@ -74,7 +74,8 @@ void char_to_fb(char ch)
     static char lin = 0;
     static char col = 0;
 
-    if(col > 0 && col % CHARS_PER_TEXT_LINE == 0 && ch != '\r')
+    if((col > 0) && (col % CHARS_PER_TEXT_LINE == 0)
+            && (ch != '\r') && (ch != BACKSPACE))
 	{
 		lin += FONT_LINES + LINE_SPACE; //jump to a new text line
 		col = 0;
