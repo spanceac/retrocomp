@@ -13,9 +13,9 @@
 
 #define CHARS_PER_TEXT_LINE 10
 #define NR_OF_TEXT_LINES 10
-#define CHARS_TO_DISPLAY CHARS_PER_TEXT_LINE * NR_OF_TEXT_LINES
+#define CHARS_TO_DISPLAY ((CHARS_PER_TEXT_LINE) * (NR_OF_TEXT_LINES))
 #define LINE_SPACE 7
-#define FB_NR_LINES (NR_OF_TEXT_LINES * FONT_LINES) + (NR_OF_TEXT_LINES * LINE_SPACE)
+#define FB_NR_LINES (((NR_OF_TEXT_LINES) * (FONT_LINES)) + ((NR_OF_TEXT_LINES) * (LINE_SPACE)))
 
 #define VSYNC_LOW LATAbits.LATA1 = 0
 #define VSYNC_HIGH LATAbits.LATA1 = 1
@@ -24,6 +24,7 @@
 #define RED_OFF LATCbits.LATC5 = 0
 
 #define BACKSPACE 8
+#define ESC 0x1B
 
 bool tmr_triggered = false;
 unsigned int line_nr = 0;
@@ -80,16 +81,19 @@ void char_to_fb(char ch)
 		lin += FONT_LINES + LINE_SPACE; //jump to a new text line
 		col = 0;
 	}
+    if(col == 0)
+        __delay_us(20);
     
     if(ch == '\r')
     {
         lin += FONT_LINES + LINE_SPACE; //jump to a new text line
 		col = 0;
-        font_nr = '>' - 32;
+        __delay_us(35);
+        return;
     }
     else if(ch == BACKSPACE)
     {
-        if(col == 1)
+        if(col == 0)
         {
             __delay_us(35);
             return;
@@ -101,6 +105,16 @@ void char_to_fb(char ch)
         {
             fb[lin + font_line_nr][col] = fonts[font_nr][font_line_nr];
         }
+        return;
+    }
+    else if(ch == ESC)
+    {
+        /* clear the screen*/
+
+        lin = 0;
+        col = 0;
+        memset(fb, 0, FB_NR_LINES * CHARS_PER_TEXT_LINE);
+        __delay_us(35);
         return;
     }
 
@@ -124,21 +138,8 @@ void uart_init(void)
 void main(void)
 {
     char i = 0;
-/*  const char text[CHARS_TO_DISPLAY];
-THE QUICK \
-BROWN FOX \
-JUMPS OVER\
-THE LAZY  \
-DOG 123456\
-OPQRSTUVWX\
-YZ12345678\
-90ABCDEFGH\
-IJKLMNOPQR\
-PORC MARE ";*/
-    
-    /*OSCCONbits.IRCF = 7;
-    OSCTUNEbits.PLLEN = 1;*/
-    
+    char rx_char = 0;
+
     TRISCbits.TRISC5 = 0; // SDO output for color
     TRISAbits.TRISA0 = 0; // HSYNC output
     TRISAbits.TRISA1 = 0; // VSYNC output
@@ -153,9 +154,6 @@ PORC MARE ";*/
     pwm_init();
     uart_init();
 
-    memset(fb, 0, FB_NR_LINES * CHARS_PER_TEXT_LINE);
-
-    char_to_fb('>');
     INTCONbits.GIE = 1; //enable interrupts
     
     while(1)
@@ -172,27 +170,23 @@ PORC MARE ";*/
             VSYNC_LOW;
             if(PIR1bits.RC1IF == 1)
             {
-                char_to_fb(RCREG1); //~57 us
-                if(RCREG1 == BACKSPACE)
-                {
-                    __delay_us(5);
-                }
-                else
-                {
-                    asm("nop"); asm("nop");
-                    __delay_us(6);
-                }
+                rx_char = RCREG1;
+                char_to_fb(rx_char); //~57 us
+                __delay_us(6);
 
+                asm("nop"); asm("nop"); asm("nop"); asm("nop");
+                asm("nop"); asm("nop"); asm("nop"); asm("nop");
+                asm("nop"); asm("nop");
             }
             else
+            {
                 __delay_us(63);
-            asm("nop"); asm("nop");
-            asm("nop"); asm("nop"); asm("nop"); asm("nop");
-            asm("nop");
+                asm("nop"); asm("nop");
+                asm("nop");
+            }
             VSYNC_HIGH;
 
             line_nr += 3;
-            
             INTCONbits.GIE = 1;
         }
 
