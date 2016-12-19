@@ -28,17 +28,32 @@
 
 bool tmr_triggered = false;
 unsigned int line_nr = 0;
+
 char text_line = 0;
-char fb[FB_NR_LINES][CHARS_PER_TEXT_LINE];
+char fb[FB_NR_LINES * CHARS_PER_TEXT_LINE];
+char *fb_pos = fb;
+
+const char text[CHARS_TO_DISPLAY] ="\
+THE QUICK\r\
+BROWN FOX\r\
+JUMPS ON\r\
+THE LAZY\r\
+PASSI TAI\r\
+GAOI GAOI\r\
+IJKLMNOPQR\
+PORC MARES\
+DUDE THIS \
+1234567890";
 
 void interrupt timer2_interrupt()
 {
-    char col = 0;
-
-    while(col < CHARS_PER_TEXT_LINE)
+    char cnt = 0;
+    while(cnt < CHARS_PER_TEXT_LINE)
     {
-        SSP1BUF = fb[text_line][col];
-        col++;
+        SSP1BUF = *(fb_pos + cnt);
+        asm("nop");asm("nop");asm("nop");asm("nop");
+        //asm("nop");asm("nop");asm("nop");asm("nop");
+        cnt++;
     }
 
     tmr_triggered = true;
@@ -72,47 +87,45 @@ void char_to_fb(char ch)
 {
     char font_nr = ch - 32;
     char font_line_nr = 0;
-    static char lin = 0;
-    static char col = 0;
+    static char *fb_p= fb;
+    static char count = 0;
 
-    if((col > 0) && (col % CHARS_PER_TEXT_LINE == 0)
-            && (ch != '\r') && (ch != BACKSPACE))
+    if(count == CHARS_PER_TEXT_LINE &&
+            (ch != '\r') && (ch != BACKSPACE))
 	{
-		lin += FONT_LINES + LINE_SPACE; //jump to a new text line
-		col = 0;
+		count = 0;
+		fb_p += (CHARS_PER_TEXT_LINE * FONT_LINES) + (LINE_SPACE * CHARS_PER_TEXT_LINE);
 	}
-    if(col == 0)
-        __delay_us(20);
     
     if(ch == '\r')
     {
-        lin += FONT_LINES + LINE_SPACE; //jump to a new text line
-		col = 0;
+        //jump to a new text line
+        fb_p +=  (CHARS_PER_TEXT_LINE * FONT_LINES) + (LINE_SPACE * CHARS_PER_TEXT_LINE);
+		count = 0;
         __delay_us(35);
         return;
     }
     else if(ch == BACKSPACE)
     {
-        if(col == 0)
+        if(count == 0)
         {
             __delay_us(35);
             return;
         }
         //in case of backspace
-        col--; //go back one position
+        count--; //go back one position
         font_nr = ' ' - 32; //print a space to erase
         for(font_line_nr = 0; font_line_nr < FONT_LINES; font_line_nr++)
         {
-            fb[lin + font_line_nr][col] = fonts[font_nr][font_line_nr];
+            *(fb_p + (font_line_nr * CHARS_PER_TEXT_LINE) + count) = fonts[font_nr][font_line_nr];
         }
         return;
     }
     else if(ch == ESC)
     {
-        /* clear the screen*/
-
-        lin = 0;
-        col = 0;
+        /* clear the screen */
+        count = 0;
+        fb_p= fb;
         memset(fb, 0, FB_NR_LINES * CHARS_PER_TEXT_LINE);
         __delay_us(35);
         return;
@@ -120,9 +133,9 @@ void char_to_fb(char ch)
 
     for(font_line_nr = 0; font_line_nr < FONT_LINES; font_line_nr++)
 	{
-        fb[lin + font_line_nr][col] = fonts[font_nr][font_line_nr];
+        *(fb_p + (font_line_nr * CHARS_PER_TEXT_LINE) + count) = fonts[font_nr][font_line_nr];
 	}
-    col++;
+    count++;
 }
 
 void uart_init(void)
@@ -139,7 +152,7 @@ void main(void)
 {
     char i = 0;
     char rx_char = 0;
-
+    
     TRISCbits.TRISC5 = 0; // SDO output for color
     TRISAbits.TRISA0 = 0; // HSYNC output
     TRISAbits.TRISA1 = 0; // VSYNC output
@@ -153,7 +166,8 @@ void main(void)
     spi_init();
     pwm_init();
     uart_init();
-
+    for(i = 0; i < 100; i++)
+        char_to_fb(text[i]);
     INTCONbits.GIE = 1; //enable interrupts
     
     while(1)
@@ -194,13 +208,24 @@ void main(void)
         {
             __delay_us(5);
             line_nr = 0;
+            fb_pos = fb;
             text_line = 0;
         }
         else
         {
             __delay_us(5);
-            if(line_nr < FB_NR_LINES + 1)
+            if(line_nr < FB_NR_LINES - 1)
+            {
+                static int coitza = 0;
                 text_line++;
+                coitza++;
+                fb_pos += CHARS_PER_TEXT_LINE;
+                /*if(coitza == FONT_LINES)
+                {
+                    fb_pos += LINE_SPACE * CHARS_PER_TEXT_LINE;
+                    coitza = 0;
+                }*/
+            }
             line_nr++;
         }
         tmr_triggered = false;
