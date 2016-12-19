@@ -26,14 +26,16 @@
 #define BACKSPACE 8
 #define ESC 0x1B
 
+#define TEST_MODE 0
+
 bool tmr_triggered = false;
 unsigned int line_nr = 0;
 
-char text_line = 0;
 char fb[FB_NR_LINES * CHARS_PER_TEXT_LINE];
 char *fb_pos = fb;
 
-const char text[CHARS_TO_DISPLAY] ="\
+#if TEST_MODE == 1
+const char test_text[CHARS_TO_DISPLAY] ="\
 THE QUICK\r\
 BROWN FOX\r\
 JUMPS ON\r\
@@ -44,6 +46,7 @@ IJKLMNOPQR\
 PORC MARES\
 DUDE THIS \
 1234567890";
+#endif
 
 void interrupt timer2_interrupt()
 {
@@ -51,8 +54,7 @@ void interrupt timer2_interrupt()
     while(cnt < CHARS_PER_TEXT_LINE)
     {
         SSP1BUF = *(fb_pos + cnt);
-        asm("nop");asm("nop");asm("nop");asm("nop");
-        //asm("nop");asm("nop");asm("nop");asm("nop");
+        asm("nop");asm("nop");asm("nop");
         cnt++;
     }
 
@@ -90,6 +92,13 @@ void char_to_fb(char ch)
     static char *fb_p= fb;
     static char count = 0;
 
+    /* check for out of bounds access */
+    if(fb_p >= (fb + FB_NR_LINES * CHARS_PER_TEXT_LINE))
+    {
+        __delay_us(28);
+        return;
+    }
+
     if(count == CHARS_PER_TEXT_LINE &&
             (ch != '\r') && (ch != BACKSPACE))
 	{
@@ -102,14 +111,14 @@ void char_to_fb(char ch)
         //jump to a new text line
         fb_p +=  (CHARS_PER_TEXT_LINE * FONT_LINES) + (LINE_SPACE * CHARS_PER_TEXT_LINE);
 		count = 0;
-        __delay_us(35);
+        __delay_us(28);
         return;
     }
     else if(ch == BACKSPACE)
     {
         if(count == 0)
         {
-            __delay_us(35);
+            __delay_us(28);
             return;
         }
         //in case of backspace
@@ -127,7 +136,7 @@ void char_to_fb(char ch)
         count = 0;
         fb_p= fb;
         memset(fb, 0, FB_NR_LINES * CHARS_PER_TEXT_LINE);
-        __delay_us(35);
+        __delay_us(28);
         return;
     }
 
@@ -166,8 +175,12 @@ void main(void)
     spi_init();
     pwm_init();
     uart_init();
+
+#if TEST_MODE == 1
     for(i = 0; i < 100; i++)
-        char_to_fb(text[i]);
+        char_to_fb(test_text[i]);
+#endif
+
     INTCONbits.GIE = 1; //enable interrupts
     
     while(1)
@@ -186,7 +199,7 @@ void main(void)
             {
                 rx_char = RCREG1;
                 char_to_fb(rx_char); //~57 us
-                __delay_us(6);
+                __delay_us(39);
 
                 asm("nop"); asm("nop"); asm("nop"); asm("nop");
                 asm("nop"); asm("nop"); asm("nop"); asm("nop");
@@ -209,22 +222,13 @@ void main(void)
             __delay_us(5);
             line_nr = 0;
             fb_pos = fb;
-            text_line = 0;
         }
         else
         {
             __delay_us(5);
             if(line_nr < FB_NR_LINES - 1)
             {
-                static int coitza = 0;
-                text_line++;
-                coitza++;
                 fb_pos += CHARS_PER_TEXT_LINE;
-                /*if(coitza == FONT_LINES)
-                {
-                    fb_pos += LINE_SPACE * CHARS_PER_TEXT_LINE;
-                    coitza = 0;
-                }*/
             }
             line_nr++;
         }
