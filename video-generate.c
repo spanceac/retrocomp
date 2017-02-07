@@ -58,7 +58,7 @@ void interrupt timer2_interrupt()
     while(cnt < CHARS_PER_TEXT_LINE)
     {
         SSP1BUF = *(fb_pos + cnt);
-        asm("nop");asm("nop");asm("nop");
+        asm("nop");asm("nop");asm("nop"); asm("nop"); asm("nop");
         cnt++;
     }
 
