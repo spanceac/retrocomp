@@ -11,11 +11,11 @@
 #include <stdbool.h>
 #include "fonts.h"
 
-#define CHARS_PER_TEXT_LINE 10
-#define NR_OF_TEXT_LINES 10
+#define CHARS_PER_TEXT_LINE 14
+#define NR_OF_TEXT_LINES 14
 #define CHARS_TO_DISPLAY ((CHARS_PER_TEXT_LINE) * (NR_OF_TEXT_LINES))
 #define LINE_SPACE 7
-#define FB_NR_LINES (((NR_OF_TEXT_LINES) * (FONT_LINES)) + ((NR_OF_TEXT_LINES) * (LINE_SPACE)))
+#define FB_NR_LINES (((NR_OF_TEXT_LINES) * (FONT_LINES)))
 
 #define VSYNC_LOW LATAbits.LATA1 = 0
 #define VSYNC_HIGH LATAbits.LATA1 = 1
@@ -36,16 +36,20 @@ char *fb_pos = fb;
 
 #if TEST_MODE == 1
 const char test_text[CHARS_TO_DISPLAY] ="\
-THE QUICK\r\
-BROWN FOX\r\
-JUMPS ON\r\
-THE LAZY\r\
-PASSI TAI\r\
-GAOI GAOI\r\
-IJKLMNOPQR\
-PORC MARES\
-DUDE THIS \
-1234567890";
+THE QUICKDICKY\
+BROWN FOXSHO\r\
+JUMPS ON LE\r\
+THE LAZY NO\r\
+PASSI TAI MEI\r\
+GAOI GAOI HOI\r\
+IJKLMNOPQRSTU\r\
+PORC MARES DRG\r\
+12345678901234\
+BEBE MEME TEST\
+BEBE VEVE TEST\
+BEBE HEHE TEST\
+THIS IS SPARTA\
+NO, IT AIN'T S";
 #endif
 
 void interrupt timer2_interrupt()
@@ -103,13 +107,13 @@ void char_to_fb(char ch)
             (ch != '\r') && (ch != BACKSPACE))
 	{
 		count = 0;
-		fb_p += (CHARS_PER_TEXT_LINE * FONT_LINES) + (LINE_SPACE * CHARS_PER_TEXT_LINE);
+		fb_p += CHARS_PER_TEXT_LINE * FONT_LINES;
 	}
     
     if(ch == '\r')
     {
         //jump to a new text line
-        fb_p +=  (CHARS_PER_TEXT_LINE * FONT_LINES) + (LINE_SPACE * CHARS_PER_TEXT_LINE);
+        fb_p += CHARS_PER_TEXT_LINE * FONT_LINES;
 		count = 0;
         __delay_us(28);
         return;
@@ -161,7 +165,10 @@ void main(void)
 {
     char i = 0;
     char rx_char = 0;
-    
+    char local_lin_count = 0;
+    char line_is_empty = 0;
+    char empty_line[CHARS_PER_TEXT_LINE] = {0};
+    char *temp_fb_p;
     TRISCbits.TRISC5 = 0; // SDO output for color
     TRISAbits.TRISA0 = 0; // HSYNC output
     TRISAbits.TRISA1 = 0; // VSYNC output
@@ -177,7 +184,7 @@ void main(void)
     uart_init();
 
 #if TEST_MODE == 1
-    for(i = 0; i < 100; i++)
+    for(i = 0; i < 196; i++)
         char_to_fb(test_text[i]);
 #endif
 
@@ -226,11 +233,38 @@ void main(void)
         else
         {
             __delay_us(5);
-            if(line_nr < FB_NR_LINES - 1)
+            /*test to see if current line is space between consecutive text lines */
+            if(local_lin_count == FONT_LINES - 1)
+            {
+                line_is_empty = 1;
+                temp_fb_p = fb_pos + CHARS_PER_TEXT_LINE;
+                fb_pos = empty_line;
+            }
+
+            if(!line_is_empty && line_nr < (FB_NR_LINES + NR_OF_TEXT_LINES * LINE_SPACE) - 1)
             {
                 fb_pos += CHARS_PER_TEXT_LINE;
             }
+
             line_nr++;
+
+            if(line_nr < (FB_NR_LINES + NR_OF_TEXT_LINES * LINE_SPACE))
+            {
+                local_lin_count++;
+            }
+            else
+            {
+                local_lin_count = 0;
+                fb_pos = empty_line;
+                line_is_empty = 0;
+            }
+            /* if a text line and the space following the line were painted*/
+            if(local_lin_count == FONT_LINES + LINE_SPACE)
+            {
+                line_is_empty = 0;
+                local_lin_count = 0;
+                fb_pos = temp_fb_p;
+            }
         }
         tmr_triggered = false;
     }
