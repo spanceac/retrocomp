@@ -26,7 +26,7 @@ Timings of the sync and data signals are explained in detail by many other peopl
 
 The websites that I used mostly for this project to be done are the following:
 
-http://dpeckett.com/vga-on-the-arduino-with-no-external-parts --> the site that inspired me the most
+http://dpeckett.com/vga-on-the-arduino-with-no-external-parts --> the site that inspired me the most, now inactive
 
 http://tinyvga.com/vga-timing/640x480@60Hz --> detailed timing description for my VGA signal
 
@@ -60,7 +60,7 @@ while(line_nr < 480)
 }
 ```
 
-What will happen when the variable `line_nr exceeds` the maximum 8-bit value 255 while it counts to 480?
+What will happen when the variable `line_nr` exceeds the maximum 8-bit value 255 while it counts to 480?
 
 If you look through the assembly code, you will notice that the boundary check will take additional CPU cycles than before.
 
